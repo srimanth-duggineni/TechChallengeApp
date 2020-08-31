@@ -1,0 +1,23 @@
+version: '3'
+services:
+  postgres:
+    image: "postgres" # use latest official postgres version
+    volumes:
+      - ./docker/volumes/postgresql:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: docker
+      POSTGRES_PASSWORD: docker
+      DB_NAME: pgdb
+      DB_USER: docker
+      DB_PASSWORD: docker
+      POSTGRES_DB: pgdb
+  goapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+     - "postgres"
