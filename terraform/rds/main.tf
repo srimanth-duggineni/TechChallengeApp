@@ -39,9 +39,9 @@ module "db" {
   # NOTE: Do NOT use 'user' as the value for 'username' as it throws:
   # "Error creating DB Instance: InvalidParameterValue: MasterUsername
   # user cannot be used as it is a reserved word used by the engine"
-  username = "todoadmin"
+  username = ""
 
-  password = "PopSocket$123"
+  password = ""
   port     = "5432"
 
   vpc_security_group_ids = [data.aws_security_group.default.id]
