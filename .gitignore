@@ -25,3 +25,7 @@ TechChallengeApp
 
 # Docker persistent volumes
 docker/volumes/postgresql
+
+# Terraform config files
+terraform/rds/.terraform*
+terraform/rds/terraform*
