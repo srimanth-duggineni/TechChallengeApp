@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Servian DevOps Tech Challenge - Tech Challenge App - Solution</title>
+        <style>
+</style>
+        
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/markdown.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Microsoft/vscode/extensions/markdown-language-features/media/highlight.css">
+<style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe WPC', 'Segoe UI', system-ui, 'Ubuntu', 'Droid Sans', sans-serif;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+        </style>
+        <style>
+.task-list-item { list-style-type: none; } .task-list-item-checkbox { margin-left: -20px; vertical-align: middle; }
+</style>
+        
+        
+        
+    </head>
+    <body class="vscode-light">
+        <h1 id="servian-devops-tech-challenge---tech-challenge-app---solution">Servian DevOps Tech Challenge - Tech Challenge App - Solution</h1>
+<h2 id="overview">Overview</h2>
+<p>This document provides all the details required for configuring the application in AWS ennvironment
+It takes sometime to configure everything but once done, a single git push to master branch is all required to get the changes live. Hands free!</p>
+<p>This is the high level overview of the pipeline</p>
+<ol>
+<li>We make a push to the master branch</li>
+<li>Github hooks trigger CodePipeline pipeline</li>
+<li>It trigger a build configured in CodeBuild</li>
+<li>CodeBuild pulls the Github master branch, looks at the buildspec.yml file and builds a docker image</li>
+<li>CodeBuild pushes the docker image to ECR</li>
+<li>CodePipeline then update the ECS Fargate deployment task with a new task definintion</li>
+<li>ECS injects environment variables required to authenticate to RDS into the container by talking to AWS SSM Parameter Store</li>
+<li>Few minutes later, you should be able to see your applicaiton changes by accessing the ALB's DNS</li>
+</ol>
+<h2 id="configuration">Configuration</h2>
+<h3 id="fork-this-repository">Fork this repository</h3>
+<p>CodeBuild and CodePipeline needs access to Github. So, please fork this repo to get started</p>
+<h3 id="create-rds-instance">Create RDS Instance</h3>
+<ol>
+<li>Go to AWS Console RDS dashboard</li>
+<li>Click on create RDS with followinf configurations
+<ol>
+<li>Choose PostgreSQL as the database engine</li>
+<li>Choose FreeTier as template</li>
+<li>Choose a master username and password of your choice and remember them, we are gonna use them later to store them in AWS SSM Parameter Store</li>
+</ol>
+</li>
+<li>Under Additional connectivity configuration. Set the public access to 'Yes'. Note: This should not be done in real life. Only setting this to yes for ease of configuration to demo</li>
+<li>Disable Auto Storage Scaling</li>
+<li>Leave everything else as is and click on create database</li>
+<li>Wait for few minutes until database status comes to 'Available' state</li>
+<li>Click on the DB identifier and take a note of the DB endpoint DNS name</li>
+<li>Make sure to allow traffic from anywhere in the default security group of the RDS. We should not do this in real life but until the assessment is finished. Keep the traffic coming in.</li>
+</ol>
+<h3 id="create-ssm-store-parameters">Create SSM Store Parameters</h3>
+<p>Go to AWS SSM Parameter Store and create three parameters named</p>
+<ol>
+<li>VTT_DBUSER with the RDS master username</li>
+<li>VTT_DBHOST with the RDS DNS endpoint</li>
+<li>VTT_DBPASSWORD with the RDS master password</li>
+</ol>
+<h3 id="create-roles">Create Roles</h3>
+<p>Now we need to create 2 roles</p>
+<h4 id="role-to-let-ecs-to-get-rds-secrets-from-ssm-parameter-store">Role to let ECS to get RDS Secrets from SSM Parameter Store</h4>
+<ol>
+<li>Goto AWS IAM Console</li>
+<li>Create a Role with 'AWS Service' as trusted entity, 'Elastic Container Service' as service and 'Elastic Container Service Task' as use case and click 'Next: Permissions'</li>
+<li>Select 'AmazonSSMReadOnlyAccess' and 'AmazonECSTaskExecutionRolePolicy' as policies. Click Next. Leave the tags as empty. Click next</li>
+<li>Enter the role name to something like 'ECSRoleForDeployment'</li>
+</ol>
+<h4 id="role-to-let-codebuild-upload-images-to-ecr">Role to let CodeBuild upload images to ECR</h4>
+<ol>
+<li>Goto AWS IAM Console</li>
+<li>Create a Role with 'AWS Service' as trusted entity, 'CodeBuild' as service and 'CodeBuild' as use case and click 'Next: Permissions'</li>
+<li>Select 'AmazonEC2ContainerRegistryFullAccess' as policy. Click Next. Leave the tags as empty. Click next</li>
+<li>Enter the role name to something like 'CodeBuildToUploadToECR'</li>
+</ol>
+<h3 id="configure-ecr">Configure ECR</h3>
+<ol>
+<li>Goto AWS ECR Console</li>
+<li>Create an ECR repository with the name 'servian-todo-app'. This name is used in buildspec.yml file to do not use another name</li>
+<li>Leave everything as default and create the repository</li>
+</ol>
+<h3 id="configure-codebuild">Configure CodeBuild</h3>
+<ol>
+<li>Goto AWS CodeBuild Console</li>
+<li>Create a build project with any project name</li>
+<li>Choose Github as your repository</li>
+<li>Authenticate with OAuth</li>
+<li>Choose Public Repository and enter '<a href="https://github.com/srimanth-duggineni/TechChallengeApp">https://github.com/srimanth-duggineni/TechChallengeApp</a>'</li>
+<li>Choose 'Managed image', Ubuntu as Operating System, 'Standard' Runtime, Image as 'aws/codebuild/standard:3.0' and tick 'Privileged' box</li>
+<li>Click on 'Existing Service Role' and choose 'CodeBuildToUploadToECR'</li>
+<li>Choose 'Use a buildspec file'. Leave the buildspec name empty</li>
+<li>Leave everything as is and click on 'Create build project'</li>
+<li>Click on 'Start build', leave everything as is and click on 'Start build'</li>
+<li>Wait for few minutes and once the build is succeeded, goto ECR</li>
+<li>Click on the repository name and copy the value of the 'Image URI'</li>
+</ol>
+<h3 id="configure-ecs-fargate">Configure ECS Fargate</h3>
+<ol>
+<li>Goto AWS ECS Fargate Console</li>
+<li>Click on 'Get Started' or Goto
+<ol>
+<li>https://{{region-console-url}}/ecs/home?region={{availability-zone-id}}#/firstRun</li>
+<li>Example - <a href="https://ap-south-1.console.aws.amazon.com/ecs/home?region=ap-south-1#/firstRun">https://ap-south-1.console.aws.amazon.com/ecs/home?region=ap-south-1#/firstRun</a></li>
+</ol>
+</li>
+<li>Choose Container definition as custom and click on configure</li>
+<li>Set the container name as 'todo-app'</li>
+<li>Paste the 'Image URI' value you configured</li>
+<li>Set the soft limit to 512MiB and container port as 3000</li>
+<li>Expand 'Advanced container configuration', scroll down to 'Environment variables'</li>
+<li>Add 3 keys with names as VTT_DBHOST, VTT_DBUSER and VTT_DBPASSWORD</li>
+<li>Open the 'Value' dropdown and choose 'ValueFrom' and enter the value</li>
+<li>arn:aws:ssm:{{availability-zone-id}}:{{accountnumber-without-hiphens}}:parameter/VTT_DBHOST</li>
+<li>arn:aws:ssm:{{availability-zone-id}}:{{accountnumber-without-hiphens}}:parameter/VTT_DBUSER</li>
+<li>arn:aws:ssm:{{availability-zone-id}}:{{accountnumber-without-hiphens}}:parameter/VTT_DBPASSWORD</li>
+<li>Example: arn:aws:ssm:us-east-1:697450186428:parameter/VTT_DBHOST</li>
+<li>Click on 'Update', then click edit on 'Task definition'</li>
+<li>Choose 'Task execution role' as 'ECSRoleForDeployment', click on 'Save' and then click on Next</li>
+<li>Choose 'Load balancer type' as Application Load Balancer and click 'Next'</li>
+<li>Choose the name as 'todo-cluster' and click on 'Next'</li>
+<li>Review the settings and click 'Create'</li>
+<li>Wait for few minutes until the setup is done and goto EC2 Console</li>
+<li>Goto Application Load Balancer. and copy the DNS name, paste it in new browser tab, add the port number as 3000 and hit enter</li>
+<li>You should see the application up and running</li>
+</ol>
+<h3 id="configure-codepipeline">Configure CodePipeline</h3>
+<ol>
+<li>Goto AWS CodePipeline console</li>
+<li>Click on 'Create pipeline'</li>
+<li>Enter a pipeline name of your choice, enter a role name of your choic and click 'Next'</li>
+<li>Choose Github as source provider. Connect to Github</li>
+<li>Choose repo and branch of your choice and choose Github Webhooks and click 'Next'</li>
+<li>Choose the CodeBuild project we have previously setup and click 'Next'</li>
+<li>Choose 'Deploy provider' as ECS and fill the details with what we configured before in ECS</li>
+<li>Click 'Create pipeline' and watch the pipeline being built for the first time</li>
+</ol>
+<p>From the next time, a commit to master repo will trigger the pipeline and changes should be live within &lt;10 mins</p>
+<h2 id="potential-improvements">Potential Improvements</h2>
+<ol>
+<li>Automate the provisioning part using Terraform/CloudFormation</li>
+<li>Configure DR and HA for RDS and ECS</li>
+<li>Better network security by creating VPC Endpoint Services</li>
+</ol>
+<p>Thanks!</p>
+
+    </body>
+    </html>
