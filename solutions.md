@@ -96,9 +96,9 @@ Now we need to create 2 roles
 7. Expand 'Advanced container configuration', scroll down to 'Environment variables'
 8. Add 3 keys with names as VTT_DBHOST, VTT_DBUSER and VTT_DBPASSWORD
 9.  Open the 'Value' dropdown and choose 'ValueFrom' and enter the value  
-   1.  arn:aws:ssm:{{region-id}}:{{accountnumber-without-hiphens}}:parameter/VTT_DBHOST
-   2.  arn:aws:ssm:{{region-id}}:{{accountnumber-without-hiphens}}:parameter/VTT_DBUSER
-   3.  arn:aws:ssm:{{region-id}}:{{accountnumber-without-hiphens}}:parameter/VTT_DBPASSWORD
+   1.  arn:aws:ssm:{{region-id}}:{{accountnumber-without-hyphens}}:parameter/VTT_DBHOST
+   2.  arn:aws:ssm:{{region-id}}:{{accountnumber-without-hyphens}}:parameter/VTT_DBUSER
+   3.  arn:aws:ssm:{{region-id}}:{{accountnumber-without-hyphens}}:parameter/VTT_DBPASSWORD
 10. Example: arn:aws:ssm:us-east-1:697450186428:parameter/VTT_DBHOST
 11. Click on 'Update', then click edit on 'Task definition'
 12. Choose 'Task execution role' as 'ECSRoleForDeployment', click on 'Save' and then click on Next
